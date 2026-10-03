@@ -1,0 +1,75 @@
+name: Update Deck 0.6.0 binaries
+'on':
+  push:
+    branches: [main]
+    paths: ['.github/workflows/update-deck-0.6.0.yml']
+permissions:
+  contents: write
+concurrency:
+  group: deck-release-0.6.0
+  cancel-in-progress: false
+jobs:
+  replace-validated-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download validated Windows build
+        env:
+          TRANSFER_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-3bac-81f5-b997-bd707e15ee35/raw?se=2026-10-03T04%3A33%3A24Z&sp=r&sv=2026-02-06&sr=b&scid=01a10000-5051-7903-b0cb-2d1515d25ede&skoid=6174e06a-818a-4ff5-b6f0-d683c3377d0a&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-03T03%3A40%3A57Z&ske=2026-10-04T03%3A40%3A57Z&sks=b&skv=2026-02-06&sig=iUBLguJq%2B4jh1u4uNAHy5/TfJrrvLX7NHKR7HZbPN0M%3D"
+        run: |
+          curl --fail --location --silent --show-error "$TRANSFER_URL" --output installer.zip
+          echo '0e48a2f1da5f78a55d3dcdb33a9f48881bc0a203655a93e43588a05a880aff1d  installer.zip' | sha256sum --check
+          unzip -q installer.zip -d build
+          test -f build/release-0.6.0/Deck-Setup-0.6.0.exe
+          test -f build/release-0.6.0/Deck-Setup-0.6.0.exe.blockmap
+          test -f build/release-0.6.0/latest.yml
+      - name: Replace release assets and remove superseded 0.6.0 files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs'), crypto = require('crypto');
+            const owner = 'cyou1314', repo = 'Deck-downloads', tag = 'v0.6.0';
+            if (context.repo.owner !== owner || context.repo.repo !== repo) throw new Error('Unexpected repository');
+            const release = (await github.rest.repos.getReleaseByTag({owner, repo, tag})).data;
+            if (release.id !== 399854688 || release.immutable) throw new Error('Release changed or is immutable');
+            const names = ['Deck-Setup-0.6.0.exe','Deck-Setup-0.6.0.exe.blockmap','latest.yml'];
+            const oldIds = {'Deck-Setup-0.6.0.exe':600621891,'Deck-Setup-0.6.0.exe.blockmap':600622081,'latest.yml':600622106};
+            const buffers = names.map(name => fs.readFileSync('build/release-0.6.0/'+name));
+            if (buffers[0][0] !== 0x4d || buffers[0][1] !== 0x5a) throw new Error('Installer is not a PE executable');
+            const yml = buffers[2].toString('utf8');
+            const sha512 = crypto.createHash('sha512').update(buffers[0]).digest('base64');
+            if (!yml.includes('version: 0.6.0') || !yml.includes('path: Deck-Setup-0.6.0.exe') || !yml.includes(sha512)) throw new Error('Update manifest does not match installer');
+            let assets = (await github.rest.repos.listReleaseAssets({owner,repo,release_id:release.id,per_page:100})).data;
+            const staged = [];
+            for (let i=0;i<names.length;i++) {
+              const name=names[i], data=buffers[i], digest='sha256:'+crypto.createHash('sha256').update(data).digest('hex');
+              const existing=assets.find(asset=>asset.name===name);
+              if (existing?.digest===digest) { staged.push({name,asset:existing,digest,unchanged:true}); continue; }
+              if (existing && existing.id!==oldIds[name]) throw new Error('Unexpected current asset: '+name);
+              const pendingName='pending-90d936d-'+name;
+              let pending=assets.find(asset=>asset.name===pendingName);
+              if (pending && pending.digest!==digest) throw new Error('Unexpected staged asset');
+              if (!pending) pending=(await github.rest.repos.uploadReleaseAsset({owner,repo,release_id:release.id,name:pendingName,label:'Deck 0.6.0 validated build 90d936d',data,headers:{'content-type':'application/octet-stream','content-length':data.length}})).data;
+              if (pending.size!==data.length || (pending.digest && pending.digest!==digest)) throw new Error('Staged upload validation failed');
+              staged.push({name,asset:pending,digest,existing});
+            }
+            for (const entry of staged) {
+              if (entry.unchanged) continue;
+              if (entry.existing) await github.rest.repos.updateReleaseAsset({owner,repo,asset_id:entry.existing.id,name:'superseded-'+entry.existing.id+'-'+entry.name});
+              try { await github.rest.repos.updateReleaseAsset({owner,repo,asset_id:entry.asset.id,name:entry.name,label:'Deck 0.6.0 · 2026-10-03 · 90d936d'}); }
+              catch (error) {
+                if (entry.existing) await github.rest.repos.updateReleaseAsset({owner,repo,asset_id:entry.existing.id,name:entry.name}).catch(()=>{});
+                throw error;
+              }
+            }
+            assets=(await github.rest.repos.listReleaseAssets({owner,repo,release_id:release.id,per_page:100})).data;
+            for (const entry of staged) {
+              const current=assets.find(asset=>asset.name===entry.name);
+              if (!current || current.id!==entry.asset.id || (current.digest && current.digest!==entry.digest)) throw new Error('Published asset verification failed');
+            }
+            const body='2026-10-03 更新：完善无限画布、Dola 账号生成与项目恢复。\n\n- 简洁浅色界面、统一图标、自由拖动与连线。\n- 明确选择 Dola 账号、模型、画幅与时长；预检和准备后核对提交，生成结果自动保存并回到画布。\n- 每次生成保留独立版本；多项目、自动备份、导入与恢复副本。\n- 支持 PNG 和含音轨的 WebM 导出。\n\n244 项测试、生产依赖审计、Windows 静默安装与启动检查通过。Dola 调用使用现有适配器；本轮未用真实账号扣额度生成视频。\n\n已有旧 0.6.0 的用户请重新下载并覆盖安装，保留原 Deck 数据目录。0.5.x 用户可通过应用内检查更新升级。';
+            await github.rest.repos.updateRelease({owner,repo,release_id:release.id,name:'Deck 0.6.0',body,make_latest:'true'});
+            for (const entry of staged) {
+              if (entry.existing) await github.rest.repos.deleteReleaseAsset({owner,repo,asset_id:entry.existing.id});
+            }
+            core.notice('Validated Deck 0.6.0 assets replaced successfully.');
