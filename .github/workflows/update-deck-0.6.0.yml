@@ -13,11 +13,12 @@ jobs:
       - name: Verify and replace 0.6.0 release assets
         env:
           GH_TOKEN: ${{ github.token }}
-          DECK_SOURCE_URL: "https://sdmntprkoreacentral.oaiusercontent.com/files/00000000-f988-8206-b949-49d21b4540b2/raw?se=2026-10-03T05%3A25%3A25Z&sp=r&sv=2026-02-06&sr=b&scid=098eb700-26cc-4b17-b163-9ca4b0e67878&skoid=0765b554-4b90-4fa2-9d6d-0055a2427910&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-03T01%3A04%3A31Z&ske=2026-10-04T01%3A04%3A31Z&sks=b&skv=2026-02-06&sig=1BJNLS0KN5OkPsqFOx7lxLAR3XBr8rfE6n3d1gSkAHw%3D"
+          DECK_SOURCE_URL: "https://sdmntprkoreacentral.oaiusercontent.com/files/00000000-99d4-8206-abb1-25c3b04e78bd/raw?se=2026-10-03T05%3A29%3A20Z&sp=r&sv=2026-02-06&sr=b&scid=098eb700-26cc-4b17-b163-9ca4b0e67878&skoid=0765b554-4b90-4fa2-9d6d-0055a2427910&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-03T01%3A47%3A02Z&ske=2026-10-04T01%3A47%3A02Z&sks=b&skv=2026-02-06&sig=xolf7Qu02I%2ByEUGbK/nOLyLKbZ6fTH0YN9uFLwr%2BEBI%3D"
           DECK_SOURCE_SHA256: c191fead2edd9704505cbbd650862d435a17fe3a84715dc183c3f140f6c2f918
         run: |
           python - <<'PY'
-          import base64, hashlib, io, json, os, re, urllib.parse, urllib.request, zipfile
+          import base64, hashlib, io, json, os, re, subprocess, urllib.parse, urllib.request, zipfile
+          from pathlib import Path
           token = os.environ['GH_TOKEN']
           repo = 'cyou1314/Deck-downloads'
           api_root = 'https://api.github.com/repos/' + repo
@@ -30,8 +31,8 @@ jobs:
               with urllib.request.urlopen(request, timeout=180) as response:
                   result = response.read()
               return json.loads(result) if result else None
-          with urllib.request.urlopen(os.environ['DECK_SOURCE_URL'], timeout=180) as response:
-              archive = response.read()
+          subprocess.run(['curl', '--fail', '--location', '--retry', '2', '--silent', '--show-error', os.environ['DECK_SOURCE_URL'], '-o', 'source.zip'], check=True)
+          archive = Path('source.zip').read_bytes()
           assert hashlib.sha256(archive).hexdigest() == os.environ['DECK_SOURCE_SHA256'], 'Artifact digest mismatch'
           expected = ['Deck-Setup-0.6.0.exe', 'Deck-Setup-0.6.0.exe.blockmap', 'latest.yml']
           payloads = {}
