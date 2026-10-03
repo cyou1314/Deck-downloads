@@ -1,0 +1,90 @@
+name: Publish inline generation update
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/update-deck-0.6.0.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify and replace 0.6.0 release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DECK_SOURCE_URL: "https://sdmntprkoreacentral.oaiusercontent.com/files/00000000-a138-8206-8d67-cbdacdc6be8d/raw?se=2026-10-03T05%3A51%3A34Z&sp=r&sv=2026-02-06&sr=b&scid=ae3f8cc8-a931-4ab5-a8a5-ddc8e1f02d84&skoid=0765b554-4b90-4fa2-9d6d-0055a2427910&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-02T22%3A25%3A09Z&ske=2026-10-03T22%3A25%3A09Z&sks=b&skv=2026-02-06&sig=2ScNntPZ2f%2BZgV6N2zz%2BQMH7swZDtJQrJeUKyXVPqqA%3D"
+          DECK_SOURCE_SHA256: 5d99552080e200b9f9ad942fce8c3df6a87f31e8bf1dfe441c3a9db01f6149f5
+        run: |
+          python - <<'PY'
+          import base64, hashlib, io, json, os, re, subprocess, urllib.parse, urllib.request, zipfile
+          from pathlib import Path
+          token = os.environ['GH_TOKEN']
+          repo = 'cyou1314/Deck-downloads'
+          api_root = 'https://api.github.com/repos/' + repo
+          def api(method, url, payload=None, binary=False):
+              data = payload if binary else (json.dumps(payload).encode() if payload is not None else None)
+              headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}
+              if data is not None:
+                  headers['Content-Type'] = 'application/octet-stream' if binary else 'application/json'
+              request = urllib.request.Request(url, data=data, headers=headers, method=method)
+              with urllib.request.urlopen(request, timeout=180) as response:
+                  result = response.read()
+              return json.loads(result) if result else None
+          subprocess.run(['curl', '--fail', '--location', '--retry', '2', '--silent', '--show-error', os.environ['DECK_SOURCE_URL'], '-o', 'source.zip'], check=True)
+          archive = Path('source.zip').read_bytes()
+          assert hashlib.sha256(archive).hexdigest() == os.environ['DECK_SOURCE_SHA256'], 'Artifact digest mismatch'
+          expected = ['Deck-Setup-0.6.0.exe', 'Deck-Setup-0.6.0.exe.blockmap', 'latest.yml']
+          payloads = {}
+          with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
+              for name in expected:
+                  matches = [entry for entry in zipped.infolist() if entry.filename.rsplit('/', 1)[-1] == name]
+                  assert len(matches) == 1, 'Expected exactly one ' + name
+                  payloads[name] = zipped.read(matches[0])
+          installer = payloads[expected[0]]
+          assert installer[:2] == b'MZ' and len(installer) > 50_000_000, 'Installer invalid'
+          manifest = payloads['latest.yml'].decode()
+          assert re.search(r'(?m)^version:\s*0\.6\.0\s*$', manifest), 'Wrong version'
+          assert re.search(r'(?m)^path:\s*Deck-Setup-0\.6\.0\.exe\s*$', manifest), 'Wrong installer path'
+          hashes = re.findall(r'(?m)^\s*sha512:\s*(\S+)\s*$', manifest)
+          actual_sha512 = base64.b64encode(hashlib.sha512(installer).digest()).decode()
+          assert hashes and all(value == actual_sha512 for value in hashes), 'Manifest checksum mismatch'
+          release = api('GET', api_root + '/releases/tags/v0.6.0')
+          old_assets = [asset for asset in release['assets'] if asset['name'] in expected]
+          assert len(old_assets) == len(set(asset['name'] for asset in old_assets)), 'Duplicate canonical assets'
+          staged = {}
+          upload_root = release['upload_url'].split('{', 1)[0]
+          for name in expected:
+              staged_name = 'staged-inline-' + name
+              digest = 'sha256:' + hashlib.sha256(payloads[name]).hexdigest()
+              existing = next((asset for asset in release['assets'] if asset['name'] == staged_name), None)
+              asset = existing or api('POST', upload_root + '?name=' + urllib.parse.quote(staged_name), payloads[name], True)
+              assert asset['size'] == len(payloads[name]) and asset.get('digest') == digest, 'Uploaded asset mismatch: ' + name
+              staged[name] = asset
+              print('Verified staged asset:', name, asset['size'], digest)
+          for asset in old_assets:
+              old_name = 'superseded-inline-' + str(asset['id']) + '-' + asset['name']
+              api('PATCH', api_root + '/releases/assets/' + str(asset['id']), {'name': old_name})
+          for name, asset in staged.items():
+              api('PATCH', api_root + '/releases/assets/' + str(asset['id']), {'name': name})
+          published = api('GET', api_root + '/releases/tags/v0.6.0')
+          for name in expected:
+              asset = next(asset for asset in published['assets'] if asset['name'] == name)
+              assert asset['id'] == staged[name]['id'] and asset['digest'] == staged[name]['digest'], 'Canonical asset mismatch'
+          body = '''2026-10-03 更新：图片与视频生成统一到节点下方的编辑面板。
+
+          - 添加节点时直接选择“生成图片”或“生成视频”，默认采用对应的图片或视频模型。
+          - 点击生成节点，在其下方同一面板填写提示词、选择 Dola 账号、模型、画幅和适用参数；图片节点隐藏视频时长。
+          - 实际提示词和参数核对、确认提交、状态与版本记录均在同一面板内完成；切换节点恢复各自配置，编辑面板随节点和画布移动。
+          - 保留拖框多选、多节点移动和删除、工作流复制、撤销、多项目与备份，以及 PNG 和含音轨 WebM 导出。
+
+          248 项测试、图片与视频界面流程回归、安全检查及 Windows 静默安装和启动检查通过。生成生命周期由模拟桥接验证，本轮未使用真实 Dola 账号扣额度生成，保留测试发布标记。
+
+          已安装此前 0.6.0 的用户请重新下载并覆盖安装，保留原 Deck 数据目录；0.5.x 用户也可手动安装此版本。'''
+          api('PATCH', api_root + '/releases/' + str(release['id']), {'body': body, 'name': release['name'], 'prerelease': release['prerelease'], 'draft': release['draft'], 'make_latest': 'false'})
+          for asset in old_assets:
+              current = api('GET', api_root + '/releases/assets/' + str(asset['id']))
+              assert current['name'] == 'superseded-inline-' + str(asset['id']) + '-' + asset['name'], 'Superseded asset changed'
+              api('DELETE', api_root + '/releases/assets/' + str(asset['id']))
+          print('Published verified canvas update and removed superseded assets.')
+          PY
