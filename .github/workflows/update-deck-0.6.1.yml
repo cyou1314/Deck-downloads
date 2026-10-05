@@ -1,4 +1,4 @@
-name: Publish canvas interaction update
+name: Finalize verified Deck 0.6.1
 on:
   push:
     branches: [main]
@@ -8,78 +8,23 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - name: Verify and replace 0.6.1 release assets
+      - name: Verify assets and publish draft
         env:
           GH_TOKEN: ${{ github.token }}
-          DECK_SOURCE_URL: https://sdmntprwestus.oaiusercontent.com/files/00000000-ef8c-8230-a18e-f5d76a7942de/raw?se=2026-10-05T13%3A17%3A46Z&sp=r&sv=2026-02-06&sr=b&scid=2e13fa2c-500a-4da9-9ba4-5546eeb7a26d&skoid=27fbae2c-124f-4566-a0d8-1b07a5a41c53&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T08%3A14%3A35Z&ske=2026-10-06T08%3A14%3A35Z&sks=b&skv=2026-02-06&sig=ZZOqSybfvh5YyX5ZGCNwwGgenw7yspWf54%2BJumvN/yo%3D
-          DECK_SOURCE_SHA256: b58ed9b5b36a8db0273df44f0960c6c98ea093c05995f2ed98a95deed19de681
         run: |
           python - <<'PY'
-          import base64, hashlib, io, json, os, re, subprocess, urllib.parse, urllib.request, zipfile
-          from pathlib import Path
-          token = os.environ['GH_TOKEN']
-          repo = 'cyou1314/Deck-downloads'
-          api_root = 'https://api.github.com/repos/' + repo
-          def api(method, url, payload=None, binary=False):
-              data = payload if binary else (json.dumps(payload).encode() if payload is not None else None)
-              headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}
-              if data is not None:
-                  headers['Content-Type'] = 'application/octet-stream' if binary else 'application/json'
-              request = urllib.request.Request(url, data=data, headers=headers, method=method)
-              with urllib.request.urlopen(request, timeout=180) as response:
-                  result = response.read()
-              return json.loads(result) if result else None
-          subprocess.run(['curl', '--fail', '--location', '--retry', '2', '--silent', '--show-error', os.environ['DECK_SOURCE_URL'], '-o', 'source.zip'], check=True)
-          archive = Path('source.zip').read_bytes()
-          assert hashlib.sha256(archive).hexdigest() == os.environ['DECK_SOURCE_SHA256'], 'Artifact digest mismatch'
-          expected = ['Deck-Setup-0.6.1.exe', 'Deck-Setup-0.6.1.exe.blockmap', 'latest.yml']
-          payloads = {}
-          with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
-              for name in expected:
-                  matches = [entry for entry in zipped.infolist() if entry.filename.rsplit('/', 1)[-1] == name]
-                  assert len(matches) == 1, 'Expected exactly one ' + name
-                  payloads[name] = zipped.read(matches[0])
-          installer = payloads[expected[0]]
-          assert installer[:2] == b'MZ' and len(installer) > 50_000_000, 'Installer invalid'
-          manifest = payloads['latest.yml'].decode()
-          assert re.search(r'(?m)^version:\s*0\.6\.1\s*$', manifest), 'Wrong version'
-          assert re.search(r'(?m)^path:\s*Deck-Setup-0\.6\.1\.exe\s*$', manifest), 'Wrong installer path'
-          hashes = re.findall(r'(?m)^\s*sha512:\s*(\S+)\s*$', manifest)
-          actual_sha512 = base64.b64encode(hashlib.sha512(installer).digest()).decode()
-          assert hashes and all(value == actual_sha512 for value in hashes), 'Manifest checksum mismatch'
-          try:
-              release = api('GET', api_root + '/releases/tags/v0.6.1')
-          except urllib.error.HTTPError as error:
-              if error.code != 404: raise
-              release = api('POST', api_root + '/releases', {'tag_name': 'v0.6.1', 'name': 'Deck 0.6.1 测试版', 'draft': True, 'prerelease': True})
-          old_assets = [asset for asset in release['assets'] if asset['name'] in expected]
-          assert len(old_assets) == len(set(asset['name'] for asset in old_assets)), 'Duplicate canonical assets'
-          staged = {}
-          upload_root = release['upload_url'].split('{', 1)[0]
-          for name in expected:
-              staged_name = 'staged-061-' + name
-              digest = 'sha256:' + hashlib.sha256(payloads[name]).hexdigest()
-              existing = next((asset for asset in release['assets'] if asset['name'] == staged_name), None)
-              asset = existing or api('POST', upload_root + '?name=' + urllib.parse.quote(staged_name), payloads[name], True)
-              assert asset['size'] == len(payloads[name]) and asset.get('digest') == digest, 'Uploaded asset mismatch: ' + name
-              staged[name] = asset
-              print('Verified staged asset:', name, asset['size'], digest)
-          for asset in old_assets:
-              old_name = 'superseded-061-' + str(asset['id']) + '-' + asset['name']
-              api('PATCH', api_root + '/releases/assets/' + str(asset['id']), {'name': old_name})
-          for name, asset in staged.items():
-              api('PATCH', api_root + '/releases/assets/' + str(asset['id']), {'name': name})
-          published = api('GET', api_root + '/releases/tags/v0.6.1')
-          for name in expected:
-              asset = next(asset for asset in published['assets'] if asset['name'] == name)
-              assert asset['id'] == staged[name]['id'] and asset['digest'] == staged[name]['digest'], 'Canonical asset mismatch'
-          body = "2026-10-05 · Deck 0.6.1 画布与界面更新\n\n- 新增顶部对齐、按节点实际宽度横向等距排列。\n- 方向键微调 1px，Shift + 方向键移动 10px，支持保存与撤销；输入框保留文本光标操作。\n- 修复连线后配置面板与选中节点不一致的问题。\n- 添加菜单贴合窗口边界、批量工具条支持换行，改善键盘焦点、滚动和删除按钮显示。\n- 保留节点内紧凑生成设置、图片/视频预览、Dola 账号选择、框选删除、复制和媒体导出。\n\n253 项测试、语法与安全检查、浏览器交互回归以及 Windows 安装启动检查通过。本轮未使用真实 Dola 账号执行付费生成，继续保留测试发布标记。\n\n请下载 Deck-Setup-0.6.1.exe 覆盖安装，保留原 Deck 数据目录。0.6.0 仍可单独下载。"
-          api('PATCH', api_root + '/releases/' + str(release['id']), {'body': body, 'name': release['name'], 'prerelease': release['prerelease'], 'draft': False, 'make_latest': 'false'})
-          for asset in old_assets:
-              current = api('GET', api_root + '/releases/assets/' + str(asset['id']))
-              assert current['name'] == 'superseded-061-' + str(asset['id']) + '-' + asset['name'], 'Superseded asset changed'
-              api('DELETE', api_root + '/releases/assets/' + str(asset['id']))
-          print('Published verified canvas update and removed superseded assets.')
+          import json, os, urllib.request
+          url = 'https://api.github.com/repos/cyou1314/Deck-downloads/releases/403729098'
+          headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'}
+          def api(method, body=None):
+              req = urllib.request.Request(url, data=json.dumps(body).encode() if body else None, headers=headers, method=method)
+              return json.load(urllib.request.urlopen(req))
+          release = api('GET')
+          expected = {"Deck-Setup-0.6.1.exe":"sha256:55c5c9fdb899f1448cdc305cb61d9cb6e186febe65eb77ddd173b07d962a948a","Deck-Setup-0.6.1.exe.blockmap":"sha256:c5f87be4d92f9dd0368f4a216db88ad0bee9099086b8600dd3c6d03ee15f610a","latest.yml":"sha256:762921dbfda87e304b69f4ff78f9c6425581ed7bd518551803e45a8f04aeb68b"}
+          assert release['tag_name'] == 'v0.6.1'
+          assert {a['name']: a['digest'] for a in release['assets']} == expected
+          result = api('PATCH', {'draft': False, 'prerelease': True, 'make_latest': 'false', 'body': "Deck 0.6.1 · 2026-10-05\n\n新增顶部对齐、横向等距排列、方向键微调（Shift 加速），修复连线后目标节点配置选择，优化菜单边界、窄窗口工具条、键盘焦点和删除按钮显示。保留节点内图片/视频生成设置及 Dola 账号选择。\n\n253 项测试、安全检查、浏览器交互及 Windows 安装启动检查通过。本轮未执行真实 Dola 付费生成，保留测试版标记。\n\n请下载 0.6.1 覆盖安装并保留原 Deck 数据目录。0.6.0 历史版本继续保留。"})
+          assert result['draft'] == False
+          print('Deck 0.6.1 published with verified assets')
           PY
