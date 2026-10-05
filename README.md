@@ -2,23 +2,25 @@
 
 这是 Deck 的公开 Windows 二进制下载仓库。源代码仓库保持私有；这里不包含源代码、授权密钥、Dola 登录信息、Cookie、素材或客户数据。
 
-## 0.6.0 测试版 · 2026-10-03 更新
+## 0.6.1 测试版 · 2026-10-05 更新
 
-[下载 Windows 安装包](https://github.com/cyou1314/Deck-downloads/releases/download/v0.6.0/Deck-Setup-0.6.0.exe) · [发布说明](https://github.com/cyou1314/Deck-downloads/releases/tag/v0.6.0)
+[下载 Windows 安装包](https://github.com/cyou1314/Deck-downloads/releases/download/v0.6.1/Deck-Setup-0.6.1.exe) · [发布说明](https://github.com/cyou1314/Deck-downloads/releases/tag/v0.6.1)
 
 Deck 是一个面向 AIGC 工作流的无限画布，支持 Dola 账号选择、图片与视频生成、结果回到画布、版本记录、多项目、自动备份，以及 PNG 和含音轨的 WebM 导出。
 
 添加节点时可直接选择“生成图片”或“生成视频”。生成节点本身就是待生成的图片或视频卡片：点击卡片后，在卡片内部编辑提示词、Dola 账号、模型、画幅和适用参数；生成完成后，结果直接显示在同一张卡片中。参考素材、镜头元数据、版本记录和提交核对折叠收纳，节点移动和画布缩放时设置会随节点保留。
 
+本次增加顶部对齐、横向等距排列和方向键微调（Shift 加速）；修复连线后目标配置选择，并改善菜单边界、窄窗口工具条和键盘焦点。
+
 画布支持拖框多选、Shift/Ctrl 追加选区、多节点移动与批量删除、Ctrl+C/V 复制并保留内部输入连线，以及选区对齐和定位。复制不会复用生成任务，进行中的生成节点受到删除保护。
 
-248 项测试、图片和视频界面流程及画布交互回归、安全检查、Windows 安装打包与启动检查通过。本轮使用模拟桥接验证生成生命周期，未使用真实 Dola 账号扣额度，保留测试发布标记。
+253 项测试、图片和视频界面流程及画布交互回归、安全检查、Windows 安装打包与启动检查通过。本轮验证画布交互，未使用真实 Dola 账号扣额度，保留测试发布标记。
 
-**已安装旧 0.6.0 的用户请重新下载并覆盖安装，保留原 Deck 数据目录。** 0.5.x 用户也可手动安装此版本。
+**0.6.0 用户请下载 0.6.1 覆盖安装，保留原 Deck 数据目录。** [0.6.0 历史版本](https://github.com/cyou1314/Deck-downloads/releases/tag/v0.6.0) 继续保留。 0.5.x 用户也可手动安装此版本。
 
 ## 发布文件
 
-- 安装版：`Deck-Setup-0.6.0.exe`。
+- 安装版：`Deck-Setup-0.6.1.exe`。
 - Release 同时提供 electron-builder 所需的 `latest.yml` 和 `.blockmap`。
 
 只有 Release 附件是发布内容，仓库正文不会存放程序源码。
