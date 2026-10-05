@@ -1,4 +1,4 @@
-name: Publish verified Deck 0.6.2
+name: Upload verified Deck 0.6.2
 on:
   push:
     branches: [main]
@@ -19,7 +19,7 @@ jobs:
         run: |
           python - <<'PY'
           import base64, hashlib, io, json, os, urllib.request, urllib.error, zipfile
-          source = "https://sdmntprnznorth.oaiusercontent.com/files/00000000-d4cc-820b-b28e-f8b0586c5ba9/raw?se=2026-10-05T15%3A04%3A25Z&sp=r&sv=2026-02-06&sr=b&scid=1bf2ecae-1978-4d4d-a690-71e8c38f34de&skoid=d5627e4c-566b-4761-a954-54993b0ed17b&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T02%3A06%3A43Z&ske=2026-10-06T02%3A06%3A43Z&sks=b&skv=2026-02-06&sig=wUsTHblvsGng2lmhY17jlzIQ8tiW1YuuKa0VVoVVEWU%3D"
+          source = "https://sdmntpraustraliaeast.oaiusercontent.com/files/00000000-6954-81fa-802d-d87b180f2a23/raw?se=2026-10-05T15%3A09%3A24Z&sp=r&sv=2026-02-06&sr=b&scid=1bf2ecae-1978-4d4d-a690-71e8c38f34de&skoid=d5627e4c-566b-4761-a954-54993b0ed17b&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T03%3A55%3A00Z&ske=2026-10-06T03%3A55%3A00Z&sks=b&skv=2026-02-06&sig=5zzU8WPBC9ZLMbSSaK82HXuj1qpogr5HljHUAXx%2B%2Boo%3D"
           expected_zip = 'bf8c3deb24dcbada95290a1ef30a2cdb502862dcd09848a02f5abb8d2871ade8'
           data = urllib.request.urlopen(source, timeout=120).read()
           assert hashlib.sha256(data).hexdigest() == expected_zip
