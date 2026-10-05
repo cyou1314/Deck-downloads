@@ -1,4 +1,4 @@
-name: Upload verified Deck 0.6.2
+name: Publish verified Deck 0.6.2
 on:
   push:
     branches: [main]
@@ -18,10 +18,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python - <<'PY'
-          import base64, hashlib, io, json, os, urllib.request, urllib.error, zipfile
-          source = "https://sdmntpraustraliaeast.oaiusercontent.com/files/00000000-6954-81fa-802d-d87b180f2a23/raw?se=2026-10-05T15%3A09%3A24Z&sp=r&sv=2026-02-06&sr=b&scid=1bf2ecae-1978-4d4d-a690-71e8c38f34de&skoid=d5627e4c-566b-4761-a954-54993b0ed17b&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T03%3A55%3A00Z&ske=2026-10-06T03%3A55%3A00Z&sks=b&skv=2026-02-06&sig=5zzU8WPBC9ZLMbSSaK82HXuj1qpogr5HljHUAXx%2B%2Boo%3D"
+          import base64, hashlib, io, json, os, subprocess, pathlib, urllib.request, urllib.error, zipfile
+          source = "https://sdmntpraustraliaeast.oaiusercontent.com/files/00000000-7258-81fa-b1ba-862c89e7b656/raw?se=2026-10-05T15%3A12%3A07Z&sp=r&sv=2026-02-06&sr=b&scid=1bf2ecae-1978-4d4d-a690-71e8c38f34de&skoid=d5627e4c-566b-4761-a954-54993b0ed17b&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-05T03%3A55%3A47Z&ske=2026-10-06T03%3A55%3A47Z&sks=b&skv=2026-02-06&sig=GNTiJJ4RSpkFo7dByrGGg/x%2BaYV559dNnAsHCez0GpM%3D"
           expected_zip = 'bf8c3deb24dcbada95290a1ef30a2cdb502862dcd09848a02f5abb8d2871ade8'
-          data = urllib.request.urlopen(source, timeout=120).read()
+          subprocess.run(['curl', '--fail', '--location', '--retry', '2', '--silent', '--show-error', source, '-o', 'source.zip'], check=True)
+          data = pathlib.Path('source.zip').read_bytes()
           assert hashlib.sha256(data).hexdigest() == expected_zip
           archive = zipfile.ZipFile(io.BytesIO(data))
           names = ['Deck-Setup-0.6.2.exe', 'Deck-Setup-0.6.2.exe.blockmap', 'latest.yml']
