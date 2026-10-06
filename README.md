@@ -2,15 +2,23 @@
 
 这是 Deck 的公开 Windows 二进制下载仓库。源代码仓库保持私有；这里不包含授权密钥、Dola 登录信息、Cookie、素材或客户数据。
 
-## Deck 0.6.4 · 2026-10-06
+## Deck 0.6.5 · 2026-10-07
 
-[下载 Windows 安装包](https://github.com/cyou1314/Deck-downloads/releases/download/v0.6.4/Deck-Setup-0.6.4.exe) · [发布说明](https://github.com/cyou1314/Deck-downloads/releases/tag/v0.6.4)
+[下载 Windows 安装包](https://github.com/cyou1314/Deck-downloads/releases/download/v0.6.5/Deck-Setup-0.6.5.exe) · [发布说明](https://github.com/cyou1314/Deck-downloads/releases/tag/v0.6.5)
 
-下载后直接运行 **Deck-Setup-0.6.4.exe**。旧版本用户可覆盖安装，保留原 Deck 数据目录。
+下载后直接运行 **Deck-Setup-0.6.5.exe**。旧版本用户可覆盖安装，保留原 Deck 数据目录。
 
 Deck 是面向 AIGC 工作流的无限画布，支持 Dola 账号选择、图片与视频生成、结果回到画布、版本记录、多项目、自动备份，以及 PNG 和含音轨的 WebM 导出。
 
-### 本次更新
+### 本次修复
+
+- 修复点击连线时移动鼠标导致连接中断；扩大连接点，支持拖到节点主体连接，并处理触摸和指针捕获。
+- 生成节点可用已保存的图片或视频结果连接下游节点。
+- 修复视频页签、参数控件和输入框的兼容性，等待参数加载完成后再设置模型、时长与比例。
+- 修复同步排队阻塞和旧状态覆盖新结果；缩短轮询间隔，支持立即继续同步与任务恢复。
+- 视频准备过程显示具体阶段，便于定位失败位置。
+
+### 画布功能
 
 - 图片、视频按原素材比例预览，媒体卡片大小可调整，常用操作精简。
 - 生成设置使用独立可调面板，准备和确认提交固定在底部，适配窄窗口。
@@ -21,11 +29,11 @@ Deck 是面向 AIGC 工作流的无限画布，支持 Dola 账号选择、图片
 - 修复图片、视频结果回填与生成状态恢复；已有任务同步不重复提交，下载失败可继续保存。
 - 保留单独删线、拖线到空白新建生成节点、撤销与重做、视频取帧和配置复用；无关节点更新保留媒体，屏幕外视频暂停。
 
-290 项测试、Chromium 画布交互与媒体解码检查、依赖审计，以及 Windows 安装和启动检查通过。安装包、更新文件及导出视频画面已校验。测试使用模拟任务和真实本地媒体；真实 Dola 账号生成与服务端回填仍需实际验证。
+296 项测试、Chromium 画布交互与媒体解码检查、依赖审计，以及 Windows 安装和启动检查通过。安装包、更新文件及导出视频画面已校验。另有四种隔离视频页面的真实适配器准备与确认提交检查通过。测试使用模拟任务和真实本地媒体；真实 Dola 账号生成与服务端回填仍需实际验证。
 
 ### 发布文件
 
-- Windows x64 安装版：`Deck-Setup-0.6.4.exe`。
-- Release 同时提供自动更新所需的 `latest.yml` 和 `Deck-Setup-0.6.4.exe.blockmap`。
+- Windows x64 安装版：`Deck-Setup-0.6.5.exe`。
+- Release 同时提供自动更新所需的 `latest.yml` 和 `Deck-Setup-0.6.5.exe.blockmap`。
 
 [历史版本](https://github.com/cyou1314/Deck-downloads/releases)继续保留。程序二进制文件位于 Release 附件，仓库正文不存放程序源码。
